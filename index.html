@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>beiaiCHAT-test</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="left-panel">
+      <div class="brand">
+        <h1>beiaiCHAT</h1>
+        <p>对话型异常人格测试页面</p>
+      </div>
+
+      <div class="portrait-card">
+        <div class="portrait-frame">
+          <img id="characterImage" src="character.png" alt="beiaiCHAT 立绘" />
+          <div id="portraitFallback" class="portrait-fallback">
+            <div class="face">AI</div>
+            <p>立绘占位</p>
+            <span>character.png</span>
+          </div>
+        </div>
+
+        <div class="character-info">
+          <h2>beiaiCHAT</h2>
+          <p id="moodText">状态：待机中</p>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-header">
+          <span>SAN 值</span>
+          <strong id="sanValueText">100 / 100</strong>
+        </div>
+
+        <div class="san-bar">
+          <div id="sanBarFill"></div>
+        </div>
+
+        <p id="sanHint">SAN 值会在随机时间刻缓慢下降。归零后，对话将被强制终止。</p>
+      </div>
+
+      <div class="system-card">
+        <h3>系统日志</h3>
+        <ul id="systemLog">
+          <li>[BOOT] beiaiCHAT-test 已启动。</li>
+          <li>[WARN] 当前版本未接入 DeepSeek。</li>
+          <li>[INFO] 本页面为第一版静态原型。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="chat-panel">
+      <header class="chat-header">
+        <div>
+          <h2>和 beiaiCHAT 对话</h2>
+          <p id="connectionStatus">连接状态：本地模拟 / DeepSeek 未接入</p>
+        </div>
+        <button id="resetBtn" type="button">重置</button>
+      </header>
+
+      <div id="chatMessages" class="chat-messages">
+        <div class="message ai">
+          <div class="name">beiaiCHAT</div>
+          <div class="bubble">
+            你好。这里是 beiaiCHAT-test。<br />
+            目前我还不是完整的我，只是一个可以被测试的空壳。
+          </div>
+        </div>
+
+        <div class="message ai">
+          <div class="name">beiaiCHAT</div>
+          <div class="bubble">
+            你可以先随便和我说话。比如问：你是谁、北艾、术力口、二次元、评论、歌词。
+          </div>
+        </div>
+      </div>
+
+      <form id="chatForm" class="chat-input-area">
+        <input
+          id="userInput"
+          type="text"
+          autocomplete="off"
+          placeholder="输入内容，然后按 Enter..."
+        />
+        <button id="sendBtn" type="submit">发送</button>
+      </form>
+
+      <div class="bottom-tip">
+        当前版本：静态假 AI 原型。后续再接 DeepSeek API。
+      </div>
+    </section>
+  </main>
+
+  <div id="gameOverOverlay" class="game-over hidden">
+    <div class="game-over-box">
+      <h2>SAN 值归零</h2>
+      <p>对话已被终止。</p>
+      <p>beiaiCHAT 拒绝继续模拟一个稳定的人。</p>
+      <button id="restartBtn" type="button">重新开始</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
