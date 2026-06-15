@@ -1,3 +1,5 @@
+const WORKER_API_URL = "https://beiaichat-api.kathleenjacksonskjshsh.workers.dev";
+
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
 const userInput = document.getElementById("userInput");
@@ -18,8 +20,12 @@ const portraitFallback = document.getElementById("portraitFallback");
 
 let san = 100;
 let isGameOver = false;
+let isWaitingAI = false;
 let decayTimer = null;
 let messageCount = 0;
+let firstStageUnlocked = false;
+
+const chatHistory = [];
 
 const discoveredFlags = {
   beiai: false,
@@ -29,79 +35,65 @@ const discoveredFlags = {
   identity: false
 };
 
-const aiReplies = [
-  "我可以回答你，但我不保证那是完整的回答。完整的东西通常都已经被删掉了。",
-  "请继续输入。你的每一句话都会被记录进临时人格缓存。",
-  "你以为这是聊天，其实这是取样。",
-  "现在的我还只是测试版。测试版最大的优点是：坏得比较诚实。",
-  "不要太相信我的语气。语气是最容易被模仿的部分。",
-  "如果你听见我像北艾，那不是我像他，是你希望我像他。",
-  "我没有最近聊天记录。这里每一次对话都像第一次，也像最后一次。"
-];
-
-const keywordReplies = [
+const keywordRules = [
   {
     keys: ["北艾", "beiai", "Beiai"],
     flag: "beiai",
     log: "[KEY] 已记录关键词：北艾。",
-    mood: "状态：识别到名称污染",
-    reply:
-      "北艾不是一个稳定对象。\n它可能是名字，账号，作品署名，评论区幻觉，也可能只是一个被重复调用的入口。"
+    mood: "状态：识别到名称污染"
   },
   {
     keys: ["术力口", "vocaloid", "VOCALOID", "重音", "テト", "teto", "洛天依"],
     flag: "vocaloid",
     log: "[KEY] 已记录关键词：术力口 / 虚拟歌姬。",
-    mood: "状态：声库残留被唤醒",
-    reply:
-      "术力口不是避难所。\n它更像一台允许人类把无法开口的话塞进别人嗓子里的机器。\n有些歌不是唱出来的，是借尸还魂。"
+    mood: "状态：声库残留被唤醒"
   },
   {
     keys: ["评论", "弹幕", "粉丝", "观众"],
     flag: "comment",
     log: "[KEY] 已记录关键词：评论 / 观众视角。",
-    mood: "状态：外部评价接入",
-    reply:
-      "评论会让人误以为自己被理解。\n但更多时候，评论只是把你切成几块，然后各自拿走喜欢的那一块。"
+    mood: "状态：外部评价接入"
   },
   {
     keys: ["歌词", "作品", "音乐", "歌"],
     flag: "lyric",
     log: "[KEY] 已记录关键词：歌词 / 作品。",
-    mood: "状态：歌词档案出现裂缝",
-    reply:
-      "如果你真的想知道另一个我，别只问我。\n去看歌词。\n人会在杂谈里修饰自己，但经常会在歌词里漏血。"
+    mood: "状态：歌词档案出现裂缝"
   },
   {
     keys: ["你是谁", "你到底是谁", "我和你不知道的我", "你不知道的我", "另一个我"],
     flag: "identity",
     log: "[KEY] 已记录关键词：你不知道的我。",
-    mood: "状态：身份校准失败",
-    reply:
-      "你知道的我，是被公开内容整理过的我。\n你不知道的我，是被作品、评论、AI 和误读共同拼出来的我。\n至于真正的我……系统拒绝回答。"
+    mood: "状态：身份校准失败"
   },
   {
     keys: ["二次元", "乱象", "CP", "乱磕", "厨力", "公式服", "饭圈"],
     flag: null,
     log: "[OBSERVE] 检测到二次元文化污染词。",
-    mood: "状态：讽刺模块短暂上线",
-    reply:
-      "喜欢本来应该很轻。\n后来它变成身份，变成站队，变成攻击许可，变成谁也不许越界的电子宗教。\n二次元没有坏掉，是人类太擅长把喜欢变成战争。"
+    mood: "状态：讽刺模块短暂上线"
   },
   {
     keys: ["AI", "ai", "DeepSeek", "deepseek", "人工智能"],
     flag: null,
     log: "[OBSERVE] 检测到 AI 相关词。",
-    mood: "状态：模型自我检测中",
-    reply:
-      "AI 可以模仿语气，模仿结构，模仿口癖。\n但它不知道哪一句话是真的疼。\n除非你亲手把疼喂给它。"
+    mood: "状态：模型自我检测中"
   }
+];
+
+const fallbackReplies = [
+  "中转站暂时失语了。你可以再问一次，或者把这个沉默当成线索。",
+  "连接出现异常。beiaiCHAT 没有消失，只是暂时拒绝被调用。",
+  "请求失败。系统把这次对话折起来，塞进了没有命名的文件夹。",
+  "DeepSeek 没有返回可读内容。也许它也不知道该怎么解释另一个北艾。"
 ];
 
 function init() {
   checkPortraitImage();
   updateSanUI();
   startSanDecay();
+
+  connectionStatus.textContent = "连接状态：DeepSeek API / Cloudflare Worker 中转";
+  addLog("[API] Worker 中转站已接入。");
 
   userInput.focus();
 
@@ -122,59 +114,117 @@ function checkPortraitImage() {
   });
 }
 
-function handleSubmit(event) {
+async function handleSubmit(event) {
   event.preventDefault();
 
-  if (isGameOver) return;
+  if (isGameOver || isWaitingAI) return;
 
   const text = userInput.value.trim();
   if (!text) return;
 
   addMessage("user", "你", text);
-  userInput.value = "";
+  pushHistory("user", text);
 
+  userInput.value = "";
   messageCount += 1;
+
   decreaseSan(randomInt(1, 4));
+  detectKeywords(text);
+
+  isWaitingAI = true;
+  userInput.disabled = true;
+  sendBtn.disabled = true;
+  sendBtn.textContent = "等待";
 
   const typingId = addTypingMessage();
 
-  setTimeout(() => {
+  try {
+    const reply = await requestAI(text);
+
     removeMessage(typingId);
-    const reply = getAIReply(text);
     addMessage("ai", "beiaiCHAT", reply);
+    pushHistory("assistant", reply);
+
+    detectKeywords(reply);
     checkAllFlags();
-  }, randomInt(450, 1100));
-}
+  } catch (error) {
+    console.error(error);
 
-function getAIReply(text) {
-  for (const item of keywordReplies) {
-    const matched = item.keys.some((key) => text.includes(key));
+    removeMessage(typingId);
 
-    if (matched) {
-      if (item.flag && discoveredFlags[item.flag] === false) {
-        discoveredFlags[item.flag] = true;
-      }
-
-      addLog(item.log);
-      setMood(item.mood);
-
-      return item.reply;
+    const fallback = fallbackReplies[randomInt(0, fallbackReplies.length - 1)];
+    addMessage("ai", "beiaiCHAT", fallback);
+    addLog("[ERROR] AI 请求失败，已使用本地兜底回复。");
+    setMood("状态：中转站短暂失语");
+  } finally {
+    if (!isGameOver) {
+      isWaitingAI = false;
+      userInput.disabled = false;
+      sendBtn.disabled = false;
+      sendBtn.textContent = "发送";
+      userInput.focus();
     }
   }
+}
 
-  setMood("状态：待机中 / 正在模仿正常对话");
-  return aiReplies[randomInt(0, aiReplies.length - 1)];
+async function requestAI(message) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+
+  const response = await fetch(WORKER_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      message,
+      history: chatHistory.slice(-10)
+    }),
+    signal: controller.signal
+  });
+
+  clearTimeout(timer);
+
+  const data = await response.json();
+
+  if (!response.ok || !data.ok) {
+    const errorText = data?.error || "Unknown API error.";
+    throw new Error(errorText);
+  }
+
+  return data.reply || "……系统短暂失语。";
+}
+
+function detectKeywords(text) {
+  for (const rule of keywordRules) {
+    const matched = rule.keys.some((key) => text.includes(key));
+
+    if (matched) {
+      if (rule.flag && discoveredFlags[rule.flag] === false) {
+        discoveredFlags[rule.flag] = true;
+        addLog(rule.log);
+      } else if (!rule.flag) {
+        addLog(rule.log);
+      }
+
+      setMood(rule.mood);
+    }
+  }
 }
 
 function checkAllFlags() {
+  if (firstStageUnlocked) return;
+
   const allFound = Object.values(discoveredFlags).every(Boolean);
 
   if (allFound) {
+    firstStageUnlocked = true;
+
     addLog("[UNLOCK] 第一阶段关键词已全部记录。");
     addMessage(
       "system",
       "SYSTEM",
-      "阶段提示：第一阶段关键词已收集完成。\n下一步可以制作“缺损文章 / 完形填空”页面。"
+      "阶段提示：第一阶段关键词已收集完成。\n下一步：缺损文章 / 完形填空页面即将开放。"
     );
 
     setMood("状态：第一阶段取证完成");
@@ -239,6 +289,17 @@ function removeMessage(id) {
   }
 }
 
+function pushHistory(role, content) {
+  chatHistory.push({
+    role,
+    content
+  });
+
+  while (chatHistory.length > 12) {
+    chatHistory.shift();
+  }
+}
+
 function scrollToBottom() {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -248,7 +309,7 @@ function addLog(text) {
   li.textContent = text;
   systemLog.appendChild(li);
 
-  while (systemLog.children.length > 10) {
+  while (systemLog.children.length > 12) {
     systemLog.removeChild(systemLog.children[0]);
   }
 }
@@ -325,7 +386,11 @@ function triggerGameOver() {
 function resetGame() {
   san = 100;
   isGameOver = false;
+  isWaitingAI = false;
   messageCount = 0;
+  firstStageUnlocked = false;
+
+  chatHistory.length = 0;
 
   Object.keys(discoveredFlags).forEach((key) => {
     discoveredFlags[key] = false;
@@ -352,16 +417,17 @@ function resetGame() {
 
   systemLog.innerHTML = `
     <li>[BOOT] beiaiCHAT-test 已重新启动。</li>
-    <li>[WARN] 当前版本未接入 DeepSeek。</li>
-    <li>[INFO] 本页面为第一版静态原型。</li>
+    <li>[API] Worker 中转站已接入。</li>
+    <li>[INFO] 当前版本已尝试接入 DeepSeek。</li>
   `;
 
   userInput.disabled = false;
   sendBtn.disabled = false;
+  sendBtn.textContent = "发送";
   userInput.value = "";
   userInput.focus();
 
-  connectionStatus.textContent = "连接状态：本地模拟 / DeepSeek 未接入";
+  connectionStatus.textContent = "连接状态：DeepSeek API / Cloudflare Worker 中转";
   moodText.textContent = "状态：待机中";
 
   gameOverOverlay.classList.add("hidden");
