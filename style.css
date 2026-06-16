@@ -5,11 +5,12 @@
 html,
 body {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   margin: 0;
 }
 
 body {
+  height: 100vh;
   font-family:
     "Microsoft YaHei",
     "PingFang SC",
@@ -22,16 +23,17 @@ body {
     radial-gradient(circle at 60% 90%, rgba(255, 50, 140, 0.16), transparent 35%),
     #08080d;
   color: #eae6ff;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .app {
   width: min(1440px, calc(100vw - 32px));
-  min-height: calc(100vh - 32px);
+  height: calc(100vh - 32px);
   margin: 16px auto;
   display: grid;
-  grid-template-columns: 370px 1fr;
+  grid-template-columns: 370px minmax(0, 1fr);
   gap: 16px;
+  overflow: hidden;
 }
 
 .left-panel,
@@ -42,6 +44,7 @@ body {
     0 0 24px rgba(114, 53, 255, 0.22),
     inset 0 0 24px rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(10px);
+  min-height: 0;
 }
 
 .left-panel {
@@ -49,12 +52,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .brand {
   padding: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(135deg, rgba(119, 44, 255, 0.28), rgba(0, 0, 0, 0.18));
+  flex-shrink: 0;
 }
 
 .brand h1 {
@@ -79,6 +85,7 @@ body {
 .system-card {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.045);
+  flex-shrink: 0;
 }
 
 .portrait-card {
@@ -206,6 +213,7 @@ body {
   padding: 14px;
   flex: 1;
   min-height: 170px;
+  overflow: hidden;
 }
 
 .system-card h3 {
@@ -223,9 +231,10 @@ body {
 }
 
 .chat-panel {
-  min-height: calc(100vh - 32px);
+  height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -234,7 +243,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .chat-header h2 {
@@ -274,9 +285,31 @@ body {
 }
 
 .chat-messages {
+  min-height: 0;
   padding: 20px;
   overflow-y: auto;
+  overflow-x: hidden;
   scroll-behavior: smooth;
+}
+
+.chat-messages::-webkit-scrollbar,
+.left-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track,
+.left-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chat-messages::-webkit-scrollbar-thumb,
+.left-panel::-webkit-scrollbar-thumb {
+  background: rgba(180, 128, 255, 0.42);
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover,
+.left-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 83, 169, 0.55);
 }
 
 .message {
@@ -298,6 +331,7 @@ body {
   line-height: 1.75;
   border: 1px solid rgba(255, 255, 255, 0.12);
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .message.ai {
@@ -352,7 +386,8 @@ body {
 }
 
 @keyframes typingBlink {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.28;
     transform: translateY(0);
   }
@@ -365,10 +400,11 @@ body {
 
 .chat-input-area {
   display: grid;
-  grid-template-columns: 1fr 108px;
+  grid-template-columns: minmax(0, 1fr) 108px;
   gap: 10px;
   padding: 16px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 #userInput {
@@ -400,6 +436,7 @@ body {
   padding: 0 18px 16px;
   color: #8e86a6;
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .game-over {
@@ -460,46 +497,8 @@ body {
   }
 }
 
-@media (max-width: 900px) {
-  .app {
-    width: min(100vw - 20px, 720px);
-    grid-template-columns: 1fr;
-  }
+/* 开场字幕 */
 
-  .portrait-frame {
-    height: 320px;
-  }
-
-  .chat-panel {
-    min-height: 720px;
-  }
-}
-
-@media (max-width: 520px) {
-  .app {
-    width: 100vw;
-    min-height: 100vh;
-    margin: 0;
-  }
-
-  .left-panel,
-  .chat-panel {
-    border-left: 0;
-    border-right: 0;
-  }
-
-  .brand h1 {
-    font-size: 28px;
-  }
-
-  .chat-input-area {
-    grid-template-columns: 1fr;
-  }
-
-  #sendBtn {
-    width: 100%;
-  }
-}
 body.intro-lock {
   overflow: hidden;
 }
@@ -546,7 +545,9 @@ body.intro-lock .app {
 }
 
 .intro-text.glitch-line {
-  animation: introLineFade 3.1s ease forwards, introTextGlitch 0.22s steps(2, end) 4;
+  animation:
+    introLineFade 3.1s ease forwards,
+    introTextGlitch 0.22s steps(2, end) 4;
 }
 
 .skip-intro {
@@ -626,7 +627,64 @@ body.intro-lock .app {
   }
 }
 
+/* 移动端 */
+
+@media (max-width: 900px) {
+  body {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .app {
+    width: min(100vw - 20px, 720px);
+    height: auto;
+    min-height: 100vh;
+    margin: 10px auto;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .left-panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .portrait-frame {
+    height: 320px;
+  }
+
+  .chat-panel {
+    height: 720px;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 520px) {
+  .app {
+    width: 100vw;
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  .left-panel,
+  .chat-panel {
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .brand h1 {
+    font-size: 28px;
+  }
+
+  .chat-input-area {
+    grid-template-columns: 1fr;
+  }
+
+  #sendBtn {
+    width: 100%;
+  }
+
   .intro-text {
     font-size: clamp(22px, 7vw, 38px);
     letter-spacing: 0.05em;
