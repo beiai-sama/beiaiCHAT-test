@@ -1,4 +1,24 @@
 const WORKER_API_URL = "https://beiaichat-api.kathleenjacksonskjshsh.workers.dev";
+const introLines = [
+  "北艾死了",
+  "死在新视频发布的前一天",
+  "死在了卧室里的电脑桌下",
+  "死在了没人在意的角落里",
+  "他死之前都没有感受被爱",
+  "他也许死的很",
+  "…轻松？…",
+  "他指尖夹着的烟都还没有熄灭",
+  "…",
+  "悲哀"
+];
+
+const introOverlay = document.getElementById("introOverlay");
+const introText = document.getElementById("introText");
+const skipIntroBtn = document.getElementById("skipIntroBtn");
+
+let introTimer = null;
+let introIndex = 0;
+let introFinished = false;
 
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
@@ -86,6 +106,77 @@ const fallbackReplies = [
   "请求失败。系统把这次对话折起来，塞进了没有命名的文件夹。",
   "DeepSeek 没有返回可读内容。也许它也不知道该怎么解释另一个北艾。"
 ];
+
+function startIntroSequence() {
+  if (!introOverlay || !introText) {
+    init();
+    return;
+  }
+
+  document.body.classList.add("intro-lock");
+
+  introIndex = 0;
+  showIntroLine();
+
+  if (skipIntroBtn) {
+    skipIntroBtn.addEventListener("click", finishIntro);
+  }
+}
+
+function showIntroLine() {
+  if (introFinished) return;
+
+  if (introIndex >= introLines.length) {
+    finishIntro();
+    return;
+  }
+
+  const line = introLines[introIndex];
+
+  introText.classList.remove("show", "glitch-line");
+  introText.textContent = "";
+
+  void introText.offsetWidth;
+
+  introText.textContent = line;
+
+  if (line.includes("？") || line === "…" || line === "悲哀") {
+    introText.classList.add("glitch-line");
+  } else {
+    introText.classList.add("show");
+  }
+
+  introIndex += 1;
+
+  let delay = 3300;
+
+  if (line === "北艾死了") delay = 3900;
+  if (line === "…") delay = 1900;
+  if (line === "悲哀") delay = 4600;
+
+  introTimer = setTimeout(showIntroLine, delay);
+}
+
+function finishIntro() {
+  if (introFinished) return;
+
+  introFinished = true;
+  clearTimeout(introTimer);
+
+  document.body.classList.remove("intro-lock");
+
+  if (introOverlay) {
+    introOverlay.classList.add("hidden");
+  }
+
+  setTimeout(() => {
+    if (introOverlay) {
+      introOverlay.remove();
+    }
+
+    init();
+  }, 1100);
+}
 
 function init() {
   checkPortraitImage();
@@ -440,4 +531,4 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-init();
+startIntroSequence();
