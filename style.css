@@ -500,3 +500,140 @@ body {
     width: 100%;
   }
 }
+body.intro-lock {
+  overflow: hidden;
+}
+
+body.intro-lock .app {
+  visibility: hidden;
+}
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+}
+
+.intro-overlay.hidden {
+  pointer-events: none;
+  animation: introDisappear 1.4s ease forwards;
+}
+
+.intro-text {
+  width: min(920px, calc(100vw - 48px));
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  font-size: clamp(24px, 4vw, 54px);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.7;
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.32),
+    0 0 30px rgba(255, 255, 255, 0.12);
+  opacity: 0;
+}
+
+.intro-text.show {
+  animation: introLineFade 3.1s ease forwards;
+}
+
+.intro-text.glitch-line {
+  animation: introLineFade 3.1s ease forwards, introTextGlitch 0.22s steps(2, end) 4;
+}
+
+.skip-intro {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+}
+
+.skip-intro:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+@keyframes introLineFade {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(8px);
+  }
+
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+    filter: blur(8px);
+  }
+}
+
+@keyframes introTextGlitch {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  25% {
+    transform: translate(2px, -1px);
+  }
+
+  50% {
+    transform: translate(-3px, 1px);
+  }
+
+  75% {
+    transform: translate(1px, 2px);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes introDisappear {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 520px) {
+  .intro-text {
+    font-size: clamp(22px, 7vw, 38px);
+    letter-spacing: 0.05em;
+  }
+
+  .skip-intro {
+    right: 14px;
+    bottom: 14px;
+  }
+}
