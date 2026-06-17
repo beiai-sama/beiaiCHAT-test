@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>archive_01</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="archive-page">
+    <section class="archive-card">
+      <p class="archive-id">archive_01 / 缺损档案</p>
+      <h1>《我，和你不知道的我》</h1>
+
+      <div id="lockedArchive" class="archive-locked hidden">
+        <h2>档案尚未开放</h2>
+        <p>请先完成 beiaiCHAT 的第一阶段身份校准。</p>
+        <a href="index.html">返回 beiaiCHAT</a>
+      </div>
+
+      <div id="archiveContent">
+        <p class="archive-warning">文本完整度：31%</p>
+        <p class="archive-warning">警告：部分内容被 beiaiCHAT 主动删改。</p>
+
+        <div class="archive-text">
+          <p>
+            北艾不是一个稳定的
+            <input class="blank-input" data-answer="对象" placeholder="____" />
+            。
+          </p>
+
+          <p>
+            被观看之后的人，会慢慢变成
+            <input class="blank-input" data-answer="评论" placeholder="____" />
+            里描述的样子。
+          </p>
+
+          <p>
+            比起杂谈，真正无法修饰的东西更容易藏在
+            <input class="blank-input" data-answer="歌词" placeholder="____" />
+            里。
+          </p>
+
+          <p>
+            AI 可以模仿语气，但不一定理解语气背后的
+            <input class="blank-input" data-answer="痛苦" placeholder="____" />
+            。
+          </p>
+
+          <p>
+            所谓“你不知道的我”，也许只是另一个被拼出来的
+            <input class="blank-input" data-answer="北艾" placeholder="____" />
+            。
+          </p>
+        </div>
+
+        <button id="checkArchiveBtn" class="archive-btn" type="button">提交复原</button>
+        <p id="archiveResult" class="archive-result"></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const stage = localStorage.getItem("beiai_stage");
+    const lockedArchive = document.getElementById("lockedArchive");
+    const archiveContent = document.getElementById("archiveContent");
+    const checkArchiveBtn = document.getElementById("checkArchiveBtn");
+    const archiveResult = document.getElementById("archiveResult");
+
+    if (stage !== "archive_unlocked") {
+      lockedArchive.classList.remove("hidden");
+      archiveContent.classList.add("hidden");
+    }
+
+    checkArchiveBtn.addEventListener("click", () => {
+      const inputs = document.querySelectorAll(".blank-input");
+      let correctCount = 0;
+
+      inputs.forEach((input) => {
+        const value = input.value.trim().toLowerCase();
+        const answer = input.dataset.answer.trim().toLowerCase();
+
+        if (value === answer) {
+          input.classList.remove("wrong");
+          input.classList.add("correct");
+          correctCount += 1;
+        } else {
+          input.classList.remove("correct");
+          input.classList.add("wrong");
+        }
+      });
+
+      if (correctCount === inputs.length) {
+        localStorage.setItem("beiai_stage", "spectrum_unlocked");
+        archiveResult.textContent = "档案复原完成。文字部分可信度：31%。剩余信息不在文本里。不要听它，看见它。";
+        archiveResult.classList.add("success");
+      } else {
+        archiveResult.textContent = `复原失败。已确认 ${correctCount} / ${inputs.length} 处。`;
+        archiveResult.classList.remove("success");
+      }
+    });
+  </script>
+</body>
+</html>
