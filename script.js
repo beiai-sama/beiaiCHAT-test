@@ -1,4 +1,5 @@
 const WORKER_API_URL = "https://beiaichat-api.kathleenjacksonskjshsh.workers.dev";
+
 const introLines = [
   "北艾死了",
   "死在新视频发布的前一天",
@@ -15,10 +16,6 @@ const introLines = [
 const introOverlay = document.getElementById("introOverlay");
 const introText = document.getElementById("introText");
 const skipIntroBtn = document.getElementById("skipIntroBtn");
-
-let introTimer = null;
-let introIndex = 0;
-let introFinished = false;
 
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
@@ -37,6 +34,13 @@ const gameOverOverlay = document.getElementById("gameOverOverlay");
 
 const characterImage = document.getElementById("characterImage");
 const portraitFallback = document.getElementById("portraitFallback");
+
+const nextStageBox = document.getElementById("nextStageBox");
+const openArchiveBtn = document.getElementById("openArchiveBtn");
+
+let introTimer = null;
+let introIndex = 0;
+let introFinished = false;
 
 let san = 100;
 let isGameOver = false;
@@ -57,43 +61,50 @@ const discoveredFlags = {
 
 const keywordRules = [
   {
+    id: "beiai",
     keys: ["北艾", "beiai", "Beiai"],
     flag: "beiai",
-    log: "[KEY] 已记录关键词：北艾。",
+    log: "[KEY] 已确认：北艾不是稳定对象。",
     mood: "状态：识别到名称污染"
   },
   {
-    keys: ["术力口", "vocaloid", "VOCALOID", "重音", "テト", "teto", "洛天依"],
+    id: "vocaloid",
+    keys: ["术力口", "vocaloid", "VOCALOID", "重音", "テト", "teto", "洛天依", "虚拟歌姬", "声库"],
     flag: "vocaloid",
-    log: "[KEY] 已记录关键词：术力口 / 虚拟歌姬。",
+    log: "[KEY] 已确认：术力口是借用他人嗓音的自白方式。",
     mood: "状态：声库残留被唤醒"
   },
   {
-    keys: ["评论", "弹幕", "粉丝", "观众"],
+    id: "comment",
+    keys: ["评论", "弹幕", "粉丝", "观众", "被观看"],
     flag: "comment",
-    log: "[KEY] 已记录关键词：评论 / 观众视角。",
+    log: "[KEY] 已确认：评论制造了另一个北艾。",
     mood: "状态：外部评价接入"
   },
   {
-    keys: ["歌词", "作品", "音乐", "歌"],
+    id: "lyric",
+    keys: ["歌词", "作品", "音乐", "歌", "杂谈", "新视频"],
     flag: "lyric",
-    log: "[KEY] 已记录关键词：歌词 / 作品。",
+    log: "[KEY] 已确认：歌词比杂谈更难修饰。",
     mood: "状态：歌词档案出现裂缝"
   },
   {
-    keys: ["你是谁", "你到底是谁", "我和你不知道的我", "你不知道的我", "另一个我"],
+    id: "identity",
+    keys: ["你是谁", "你到底是谁", "我和你不知道的我", "你不知道的我", "另一个我", "真正的北艾", "你和北艾"],
     flag: "identity",
-    log: "[KEY] 已记录关键词：你不知道的我。",
+    log: "[KEY] 已确认：你不知道的我，是被拼出来的我。",
     mood: "状态：身份校准失败"
   },
   {
-    keys: ["二次元", "乱象", "CP", "乱磕", "厨力", "公式服", "饭圈"],
+    id: "animeCulture",
+    keys: ["二次元", "乱象", "CP", "乱磕", "厨力", "公式服", "饭圈", "二创"],
     flag: null,
     log: "[OBSERVE] 检测到二次元文化污染词。",
     mood: "状态：讽刺模块短暂上线"
   },
   {
-    keys: ["AI", "ai", "DeepSeek", "deepseek", "人工智能"],
+    id: "ai",
+    keys: ["AI", "ai", "DeepSeek", "deepseek", "人工智能", "模型"],
     flag: null,
     log: "[OBSERVE] 检测到 AI 相关词。",
     mood: "状态：模型自我检测中"
@@ -183,17 +194,37 @@ function init() {
   updateSanUI();
   startSanDecay();
 
-  connectionStatus.textContent = "连接状态：DeepSeek API / Cloudflare Worker 中转";
+  if (connectionStatus) {
+    connectionStatus.textContent = "连接状态：DeepSeek API / Cloudflare Worker 中转";
+  }
+
   addLog("[API] Worker 中转站已接入。");
+  addLog("[STAGE] 当前阶段：身份校准。");
 
-  userInput.focus();
+  if (chatForm) {
+    chatForm.addEventListener("submit", handleSubmit);
+  }
 
-  chatForm.addEventListener("submit", handleSubmit);
-  resetBtn.addEventListener("click", resetGame);
-  restartBtn.addEventListener("click", resetGame);
+  if (resetBtn) {
+    resetBtn.addEventListener("click", resetGame);
+  }
+
+  if (restartBtn) {
+    restartBtn.addEventListener("click", resetGame);
+  }
+
+  if (openArchiveBtn) {
+    openArchiveBtn.addEventListener("click", goToArchive);
+  }
+
+  if (userInput) {
+    userInput.focus();
+  }
 }
 
 function checkPortraitImage() {
+  if (!characterImage || !portraitFallback) return;
+
   characterImage.addEventListener("error", () => {
     characterImage.style.display = "none";
     portraitFallback.style.display = "flex";
@@ -220,7 +251,9 @@ async function handleSubmit(event) {
   messageCount += 1;
 
   decreaseSan(randomInt(1, 4));
+
   detectKeywords(text);
+  checkAllFlags();
 
   isWaitingAI = true;
   userInput.disabled = true;
@@ -236,7 +269,6 @@ async function handleSubmit(event) {
     addMessage("ai", "beiaiCHAT", reply);
     pushHistory("assistant", reply);
 
-    detectKeywords(reply);
     checkAllFlags();
   } catch (error) {
     console.error(error);
@@ -269,7 +301,9 @@ async function requestAI(message) {
     },
     body: JSON.stringify({
       message,
-      history: chatHistory.slice(-10)
+      history: chatHistory.slice(-10),
+      stage: "identity_calibration",
+      discoveredFlags
     }),
     signal: controller.signal
   });
@@ -290,16 +324,18 @@ function detectKeywords(text) {
   for (const rule of keywordRules) {
     const matched = rule.keys.some((key) => text.includes(key));
 
-    if (matched) {
-      if (rule.flag && discoveredFlags[rule.flag] === false) {
+    if (!matched) continue;
+
+    if (rule.flag) {
+      if (discoveredFlags[rule.flag] === false) {
         discoveredFlags[rule.flag] = true;
         addLog(rule.log);
-      } else if (!rule.flag) {
-        addLog(rule.log);
       }
-
-      setMood(rule.mood);
+    } else {
+      addLog(rule.log);
     }
+
+    setMood(rule.mood);
   }
 }
 
@@ -308,18 +344,41 @@ function checkAllFlags() {
 
   const allFound = Object.values(discoveredFlags).every(Boolean);
 
-  if (allFound) {
-    firstStageUnlocked = true;
+  if (!allFound) return;
 
-    addLog("[UNLOCK] 第一阶段关键词已全部记录。");
-    addMessage(
-      "system",
-      "SYSTEM",
-      "阶段提示：第一阶段关键词已收集完成。\n下一步：缺损文章 / 完形填空页面即将开放。"
-    );
+  firstStageUnlocked = true;
 
-    setMood("状态：第一阶段取证完成");
+  localStorage.setItem("beiai_stage", "archive_unlocked");
+  localStorage.setItem("beiai_clues", JSON.stringify(discoveredFlags));
+
+  addLog("[UNLOCK] archive_01 已生成。");
+
+  addMessage(
+    "system",
+    "SYSTEM",
+    "身份校准完成。\n已从 beiaiCHAT 的回答中提取 5 条异常事实。\n正在生成缺损档案 archive_01……"
+  );
+
+  setMood("状态：第一阶段取证完成");
+
+  if (nextStageBox) {
+    nextStageBox.classList.remove("hidden");
   }
+}
+
+function goToArchive() {
+  localStorage.setItem("beiai_stage", "archive_unlocked");
+  localStorage.setItem("beiai_clues", JSON.stringify(discoveredFlags));
+
+  const overlay = document.createElement("div");
+  overlay.className = "route-overlay";
+  overlay.innerHTML = "<p>正在导出 archive_01……<br>文本完整度：31%</p>";
+
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    location.href = "archive.html";
+  }, 2400);
 }
 
 function addMessage(type, name, text) {
@@ -392,10 +451,13 @@ function pushHistory(role, content) {
 }
 
 function scrollToBottom() {
+  if (!chatMessages) return;
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function addLog(text) {
+  if (!systemLog) return;
+
   const li = document.createElement("li");
   li.textContent = text;
   systemLog.appendChild(li);
@@ -406,7 +468,9 @@ function addLog(text) {
 }
 
 function setMood(text) {
-  moodText.textContent = text;
+  if (moodText) {
+    moodText.textContent = text;
+  }
 
   document.body.classList.remove("glitch");
   void document.body.offsetWidth;
@@ -438,6 +502,8 @@ function decreaseSan(amount) {
 }
 
 function updateSanUI() {
+  if (!sanValueText || !sanBarFill || !sanHint) return;
+
   sanValueText.textContent = `${san} / 100`;
   sanBarFill.style.width = `${san}%`;
 
@@ -457,12 +523,17 @@ function triggerGameOver() {
   isGameOver = true;
   clearTimeout(decayTimer);
 
-  userInput.disabled = true;
-  sendBtn.disabled = true;
-  connectionStatus.textContent = "连接状态：终止 / SAN 值归零";
+  if (userInput) userInput.disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
+
+  if (connectionStatus) {
+    connectionStatus.textContent = "连接状态：终止 / SAN 值归零";
+  }
+
   setMood("状态：对话终止");
 
   addLog("[FATAL] SAN 值归零。对话终止。");
+
   addMessage(
     "system",
     "SYSTEM",
@@ -470,7 +541,9 @@ function triggerGameOver() {
   );
 
   setTimeout(() => {
-    gameOverOverlay.classList.remove("hidden");
+    if (gameOverOverlay) {
+      gameOverOverlay.classList.remove("hidden");
+    }
   }, 500);
 }
 
@@ -487,41 +560,64 @@ function resetGame() {
     discoveredFlags[key] = false;
   });
 
+  localStorage.removeItem("beiai_stage");
+  localStorage.removeItem("beiai_clues");
+
   clearTimeout(decayTimer);
 
-  chatMessages.innerHTML = `
-    <div class="message ai">
-      <div class="name">beiaiCHAT</div>
-      <div class="bubble">
-        你好。这里是 beiaiCHAT-test。<br>
-        目前我还不是完整的我，只是一个可以被测试的空壳。
+  if (chatMessages) {
+    chatMessages.innerHTML = `
+      <div class="message ai">
+        <div class="name">beiaiCHAT</div>
+        <div class="bubble">
+          你好。这里是 beiaiCHAT-test。<br>
+          目前我还不是完整的我，只是一个可以被测试的空壳。
+        </div>
       </div>
-    </div>
 
-    <div class="message ai">
-      <div class="name">beiaiCHAT</div>
-      <div class="bubble">
-        你可以先随便和我说话。比如问：你是谁、北艾、术力口、二次元、评论、歌词。
+      <div class="message ai">
+        <div class="name">beiaiCHAT</div>
+        <div class="bubble">
+          你可以先随便和我说话。比如问：你是谁、北艾是谁、术力口、二次元、评论、歌词。
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  }
 
-  systemLog.innerHTML = `
-    <li>[BOOT] beiaiCHAT-test 已重新启动。</li>
-    <li>[API] Worker 中转站已接入。</li>
-    <li>[INFO] 当前版本已尝试接入 DeepSeek。</li>
-  `;
+  if (systemLog) {
+    systemLog.innerHTML = `
+      <li>[BOOT] beiaiCHAT-test 已重新启动。</li>
+      <li>[API] Worker 中转站已接入。</li>
+      <li>[INFO] 当前阶段：身份校准。</li>
+    `;
+  }
 
-  userInput.disabled = false;
-  sendBtn.disabled = false;
-  sendBtn.textContent = "发送";
-  userInput.value = "";
-  userInput.focus();
+  if (userInput) {
+    userInput.disabled = false;
+    userInput.value = "";
+    userInput.focus();
+  }
 
-  connectionStatus.textContent = "连接状态：DeepSeek API / Cloudflare Worker 中转";
-  moodText.textContent = "状态：待机中";
+  if (sendBtn) {
+    sendBtn.disabled = false;
+    sendBtn.textContent = "发送";
+  }
 
-  gameOverOverlay.classList.add("hidden");
+  if (connectionStatus) {
+    connectionStatus.textContent = "连接状态：DeepSeek API / Cloudflare Worker 中转";
+  }
+
+  if (moodText) {
+    moodText.textContent = "状态：待机中";
+  }
+
+  if (gameOverOverlay) {
+    gameOverOverlay.classList.add("hidden");
+  }
+
+  if (nextStageBox) {
+    nextStageBox.classList.add("hidden");
+  }
 
   updateSanUI();
   startSanDecay();
